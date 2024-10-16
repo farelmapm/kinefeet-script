@@ -2,6 +2,7 @@ import requests
 import sys
 import pandas
 from datetime import date
+from openpyxl import load_workbook, Workbook
 
 import os
 
@@ -13,19 +14,12 @@ def clear_console():
         os.system('clear')
 
 def find_outliers(column):
-    print(column)
     col_data = column.dropna()
-    print(col_data)
     q1 = col_data.quantile(0.25)
     q3 = col_data.quantile(0.75)
     iqr = q3 - q1
     lower_bound = q1 - 1.5 * iqr
     upper_bound = q3 + 1.5 * iqr 
-    print(f"lower bound = {lower_bound}")
-    print(f"upper bound = {upper_bound}")
-    print(f"iqr = {iqr}")
-    print(f"q1 = {q1}")
-    print(f"q3 = {q3}")
     return (column < lower_bound) | (column > upper_bound)
 
 clear_console()
@@ -245,35 +239,43 @@ for col in df.columns:
     #if i == 4:
     #    break
 
-with pandas.ExcelWriter('data/output.xlsx', engine='xlsxwriter') as writer:
+def excel_column_name(n):
+    """Converts a zero-based column index to an Excel column name (e.g., 0 -> 'A', 26 -> 'AA')."""
+    result = ''
+    while n >= 0:
+        result = chr(n % 26 + 65) + result
+        n = n // 26 - 1
+    return result
+# Export to Excel with conditional formatting
+
+output_name = input("Masukkan nama dari spreadsheet yang akan dibuat: ")
+output = f"data/{output_name}.xlsx"
+
+with pandas.ExcelWriter(output, engine='xlsxwriter') as writer:
     df.to_excel(writer, sheet_name='Sheet1', index=False)
-    
-    # Access the xlsxwriter workbook and worksheet objects
-    workbook  = writer.book
+
+    workbook = writer.book
     worksheet = writer.sheets['Sheet1']
-    
-    # Define a format for the outliers (red background)
-    format_outlier = workbook.add_format({'bg_color': '#FF6666'})  # Light red background
+
+    # Define a format for the outliers
+    format_outlier = workbook.add_format({'bg_color': '#FF6666'})
 
     # Apply conditional formatting for each numeric column
     for col_num, col in enumerate(df.columns):
         if '_is_outlier' not in col and col != 'patient':
-            # Calculate row range for data (2nd row onwards, 1-based index)
-            start_row = 2
-            end_row = len(df) + 1  # 1-based, so add 1
-            range_str = f'{chr(65+col_num)}{start_row}:{chr(65+col_num)}{end_row}'
-            
-            # Apply conditional formatting based on the 'is_outlier' column
-            outlier_col = f'{col}_is_outlier'
-            outlier_col_num = df.columns.get_loc(outlier_col) + 1  # 1-based index for Excel
+            # Calculate the range for this column (skip the header row)
+            col_letter = excel_column_name(col_num)   # Convert column number to Excel column letter (A, B, etc.)
+            data_range = f'{col_letter}2:{col_letter}{len(df) + 1}'  # Start at row 2, ending at the last data row
 
-            worksheet.conditional_format(range_str, {
-                'type':     'formula',
-                'criteria': f'=$${chr(65+outlier_col_num)}{start_row}=TRUE',  # Reference the outlier column
-                'format':   format_outlier
+            # Corresponding outlier columns
+            outlier_col_letter = excel_column_name(df.columns.get_loc(f'{col}_is_outlier'))
+
+            # Apply conditional formatting for the data range based on the outlier column
+            worksheet.conditional_format(data_range, {
+                'type': 'formula',
+                'criteria': f'=${outlier_col_letter}2=TRUE',
+                'format': format_outlier
             })
-
-#output_name = input("Masukkan nama dari file yang akan dibuat untuk menampung data: ")
-#output = "data/" + output_name + ".xlsx"
-#df.to_excel(output, index = False)
-#print(f"Data ada di file {output}.")
+    for col_num, col in enumerate(df.columns):
+        if '_is_outlier' in col:
+            worksheet.set_column(col_num, col_num, None, None, {'hidden': True})

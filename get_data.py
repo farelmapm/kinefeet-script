@@ -54,7 +54,10 @@ while True:
     print("2) Ambil data seluruh pasien")
     print("3) Ambil data pasien yang dibuat pada hari ini")
     print("4) Ambil data pasien yang dibuat pada bulan ini")
+    print("5) Ambil data pasien yang dibuat setelah tanggal 8 Oktober 2024")
+    print("6) Ambil data pasien yang dibuat pada rentang waktu tertentu")
     option = input("Ketik nomor dari operasi yang ingin dilakukan: ")
+
     if option == "1":
         while True:
             name = input("Masukkan nama pasien (maximal 1 pasien): ")
@@ -228,54 +231,92 @@ while True:
         print(f"Berhasil mengambil {index} data pasien pada bulan {this_month}")
         break
 
+    elif option = "5":
+        #8 Oktober 2024
+        print(f"Mengambil data pasien yang dibuat hingga tanggal 8 Oktober 2024...")
+        page = 1
+        patient_search_url = "https://kinefeet.elgibor-solution.com/api/checkup?page=" + str(page)
+        response = requests.get(patient_search_url, headers=headers).json()
+        data = response.get("data")
+        total = response.get("total")
+        i = 1
+        index = 0
+        while True:
+            patient = data[(i - 1)]
+            if patient.get("id") < "104":           #Pasien Joan ID 104
+                break
+            patient_name = patient.get("patient_name")
+            result["patient"] = patient_name
+            for cart in carts:
+                if cart == "patient":
+                    continue
+                if patient.get(cart) != None:
+                    result[cart] = float(patient.get(cart)) 
+            df.loc[len(df)] = result
+            i += 1
+            index += 1
+            if index % 10 == 1:
+                page += 1
+                patient_search_url = "https://kinefeet.elgibor-solution.com/api/checkup?page=" + str(page)
+                response = requests.get(patient_search_url, headers=headers).json()
+                data = response.get("data")
+                i = 1
+        print(f"Berhasil mengambil {index} data pasien hingga tanggal 8 Oktober 2024")
+        break
+
+    elif option = "6":                                                  #Ambil data hingga tanggal tertentu
+            #todo
+        
+
 #process dataframe
-
-print("Mencari outlier...")
-i = 1
-for col in df.columns:
-    if col != "patient":
-        df[f'{col}_is_outlier'] = find_outliers(df[col])
-    #i += 1
-    #if i == 4:
-    #    break
-
-def excel_column_name(n):
-    """Converts a zero-based column index to an Excel column name (e.g., 0 -> 'A', 26 -> 'AA')."""
-    result = ''
-    while n >= 0:
-        result = chr(n % 26 + 65) + result
-        n = n // 26 - 1
-    return result
-# Export to Excel with conditional formatting
-
+inp = input("Cari outlier dari data? (Y/n) ")
 output_name = input("Masukkan nama dari spreadsheet yang akan dibuat: ")
 output = f"data/{output_name}.xlsx"
 
-with pandas.ExcelWriter(output, engine='xlsxwriter') as writer:
-    df.to_excel(writer, sheet_name='Sheet1', index=False)
+if not (inp.lower() == "n"):
+    print("Mencari outlier...")
+    i = 1
+    for col in df.columns:
+        if col != "patient":
+            df[f'{col}_is_outlier'] = find_outliers(df[col])
+        #i += 1
+        #if i == 4:
+        #    break
 
-    workbook = writer.book
-    worksheet = writer.sheets['Sheet1']
+    def excel_column_name(n):
+        """Converts a zero-based column index to an Excel column name (e.g., 0 -> 'A', 26 -> 'AA')."""
+        result = ''
+        while n >= 0:
+            result = chr(n % 26 + 65) + result
+            n = n // 26 - 1
+        return result
+# Export to Excel with conditional formatting
 
-    # Define a format for the outliers
-    format_outlier = workbook.add_format({'bg_color': '#FF6666'})
+    with pandas.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, sheet_name='Sheet1', index=False)
 
-    # Apply conditional formatting for each numeric column
-    for col_num, col in enumerate(df.columns):
-        if '_is_outlier' not in col and col != 'patient':
-            # Calculate the range for this column (skip the header row)
-            col_letter = excel_column_name(col_num)   # Convert column number to Excel column letter (A, B, etc.)
-            data_range = f'{col_letter}2:{col_letter}{len(df) + 1}'  # Start at row 2, ending at the last data row
+        workbook = writer.book
+        worksheet = writer.sheets['Sheet1']
 
-            # Corresponding outlier columns
-            outlier_col_letter = excel_column_name(df.columns.get_loc(f'{col}_is_outlier'))
+        # Define a format for the outliers
+        format_outlier = workbook.add_format({'bg_color': '#FF6666'})
 
-            # Apply conditional formatting for the data range based on the outlier column
-            worksheet.conditional_format(data_range, {
-                'type': 'formula',
-                'criteria': f'=${outlier_col_letter}2=TRUE',
-                'format': format_outlier
-            })
-    for col_num, col in enumerate(df.columns):
-        if '_is_outlier' in col:
-            worksheet.set_column(col_num, col_num, None, None, {'hidden': True})
+        # Apply conditional formatting for each numeric column
+        for col_num, col in enumerate(df.columns):
+            if '_is_outlier' not in col and col != 'patient':
+                # Calculate the range for this column (skip the header row)
+                col_letter = excel_column_name(col_num)   # Convert column number to Excel column letter (A, B, etc.)
+                data_range = f'{col_letter}2:{col_letter}{len(df) + 1}'  # Start at row 2, ending at the last data row
+
+                # Corresponding outlier columns
+                outlier_col_letter = excel_column_name(df.columns.get_loc(f'{col}_is_outlier'))
+
+                # Apply conditional formatting for the data range based on the outlier column
+                worksheet.conditional_format(data_range, {
+                    'type': 'formula',
+                    'criteria': f'=${outlier_col_letter}2=TRUE',
+                    'format': format_outlier
+                })
+        for col_num, col in enumerate(df.columns):
+            if '_is_outlier' in col:
+                worksheet.set_column(col_num, col_num, None, None, {'hidden': True})

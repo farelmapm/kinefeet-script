@@ -28,9 +28,26 @@ carts = ["patient", "mla_ic", "mla_lr", "mla_mst", "mla_tst", "mla_psw", "mla_he
 result = {}
 df = pandas.DataFrame(columns=carts, index=[])
 
+try:
+    creds = open("credentials.txt", "r")
+    lst = []
+    for line in creds:
+        lst.append(line.strip())
+    username = lst[0]
+    password = lst[1]
+    creds.close()
+except:
+    username = None
+    password = None
+
 while True:
-    username = input("Masukkan username: ")
-    password = input("Masukkan password: ")
+    if not username:
+        username = input("Masukkan username: ")
+        password = input("Masukkan password: ")
+        creds = open("credentials.txt", "w")
+        creds.write(username + "\n")
+        creds.write(password)
+        creds.close()
     login_url = "https://kinefeet.elgibor-solution.com/api/login"
     data = {
         "username": username,
@@ -54,6 +71,9 @@ while True:
         break
 
     print("Username atau password salah!")
+    open("credentials.txt", "w").close()
+    username = None
+    password = None
 
 clear_console()
 

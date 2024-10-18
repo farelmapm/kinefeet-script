@@ -37,7 +37,15 @@ while True:
         "password": password
     }
 
-    response = requests.post(login_url, json=data)
+    try:
+        response = requests.post(login_url, json=data)
+    except:
+        print("Terdapat kendala dalam koneksi ke situs Kinefeet. Pastikan anda terhubung ke internet.")
+        try_again = input("Coba lagi? (Y/n) ")
+        if (not try_again) or (try_again.lower() == "y"):
+            continue
+        else:
+            exit()
 
     if response.status_code == 200:
         token = response.json().get("token")
@@ -91,7 +99,11 @@ while True:
                             i = 1
                             print()
                     inp = input("Pilih nomor pasien yang sesuai: ")
-                    patient = data[(int(inp) - 1)]
+                    try:
+                        patient = data[(int(inp) - 1)]
+                    except:
+                        print("Input tidak valid, pastikan input sesuai dengan nomor yang tersedia")
+                        continue
                 else:
                     continue
             elif total == 1:
@@ -231,7 +243,7 @@ while True:
         print(f"Berhasil mengambil {index} data pasien pada bulan {this_month}")
         break
 
-    elif option = "5":
+    elif option == "5":
         #8 Oktober 2024
         print(f"Mengambil data pasien yang dibuat hingga tanggal 8 Oktober 2024...")
         page = 1
@@ -243,7 +255,7 @@ while True:
         index = 0
         while True:
             patient = data[(i - 1)]
-            if patient.get("id") < "104":           #Pasien Joan ID 104
+            if patient.get("id") < 104:           #Pasien Joan ID 104
                 break
             patient_name = patient.get("patient_name")
             result["patient"] = patient_name
@@ -264,9 +276,48 @@ while True:
         print(f"Berhasil mengambil {index} data pasien hingga tanggal 8 Oktober 2024")
         break
 
-    elif option = "6":                                                  #Ambil data hingga tanggal tertentu
-            #todo
-        
+    elif option == "6":                                                  #Ambil data hingga tanggal tertentu
+        cutoff_date = input("Masukkan tanggal (format: dd-mm-yyyy. Contoh: 01-02-2024 = 1 Februari 2024): ")
+        cday = cutoff_date[:2]
+        cmonth = cutoff_date[3:5]
+        cyear = cutoff_date[6:10]
+        valid_date = f"{cyear}-{cmonth}-{cday}"
+
+        page = 1
+        patient_search_url = "https://kinefeet.elgibor-solution.com/api/checkup?page=" + str(page)
+        print("Mengambil data. Mohon tunggu...")
+        response = requests.get(patient_search_url, headers=headers).json()
+        data = response.get("data")
+        total = response.get("total")
+        i = 1
+        index = 0
+        while True:
+            patient = data[(i - 1)]
+            if patient.get("updated_at")[:10] < valid_date:   
+                break
+            patient_name = patient.get("patient_name")
+            result["patient"] = patient_name
+            for cart in carts:
+                if cart == "patient":
+                    continue
+                if patient.get(cart) != None:
+                    result[cart] = float(patient.get(cart)) 
+            df.loc[len(df)] = result
+            i += 1
+            index += 1
+            if index % 10 == 1:
+                page += 1
+                patient_search_url = "https://kinefeet.elgibor-solution.com/api/checkup?page=" + str(page)
+                response = requests.get(patient_search_url, headers=headers).json()
+                data = response.get("data")
+                i = 1
+            
+            print(f"Telah mengambil {index} data...")
+        print(f"Berhasil mengambil {index} data pasien hingga tanggal {cutoff_date}")
+        break
+
+    else:
+        print("Tolong masukkan angka yang valid.")
 
 #process dataframe
 inp = input("Cari outlier dari data? (Y/n) ")
@@ -292,31 +343,33 @@ if not (inp.lower() == "n"):
         return result
 # Export to Excel with conditional formatting
 
-    with pandas.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, sheet_name='Sheet1', index=False)
+with pandas.ExcelWriter(output, engine='xlsxwriter') as writer:
+    df.to_excel(writer, sheet_name='Sheet1', index=False)
 
-        workbook = writer.book
-        worksheet = writer.sheets['Sheet1']
+    workbook = writer.book
+    worksheet = writer.sheets['Sheet1']
 
-        # Define a format for the outliers
-        format_outlier = workbook.add_format({'bg_color': '#FF6666'})
+    # Define a format for the outliers
+    format_outlier = workbook.add_format({'bg_color': '#FF6666'})
 
-        # Apply conditional formatting for each numeric column
-        for col_num, col in enumerate(df.columns):
-            if '_is_outlier' not in col and col != 'patient':
-                # Calculate the range for this column (skip the header row)
-                col_letter = excel_column_name(col_num)   # Convert column number to Excel column letter (A, B, etc.)
-                data_range = f'{col_letter}2:{col_letter}{len(df) + 1}'  # Start at row 2, ending at the last data row
+    # Apply conditional formatting for each numeric column
+    for col_num, col in enumerate(df.columns):
+        if '_is_outlier' not in col and col != 'patient':
+            # Calculate the range for this column (skip the header row)
+            col_letter = excel_column_name(col_num)   # Convert column number to Excel column letter (A, B, etc.)
+            data_range = f'{col_letter}2:{col_letter}{len(df) + 1}'  # Start at row 2, ending at the last data row
 
-                # Corresponding outlier columns
-                outlier_col_letter = excel_column_name(df.columns.get_loc(f'{col}_is_outlier'))
+            # Corresponding outlier columns
+            outlier_col_letter = excel_column_name(df.columns.get_loc(f'{col}_is_outlier'))
 
-                # Apply conditional formatting for the data range based on the outlier column
-                worksheet.conditional_format(data_range, {
-                    'type': 'formula',
-                    'criteria': f'=${outlier_col_letter}2=TRUE',
-                    'format': format_outlier
-                })
-        for col_num, col in enumerate(df.columns):
-            if '_is_outlier' in col:
-                worksheet.set_column(col_num, col_num, None, None, {'hidden': True})
+            # Apply conditional formatting for the data range based on the outlier column
+            worksheet.conditional_format(data_range, {
+                'type': 'formula',
+                'criteria': f'=${outlier_col_letter}2=TRUE',
+                'format': format_outlier
+            })
+    for col_num, col in enumerate(df.columns):
+        if '_is_outlier' in col:
+            worksheet.set_column(col_num, col_num, None, None, {'hidden': True})
+
+print("Data berada dalam file {output}")

@@ -117,7 +117,7 @@ while True:
                         print(f"Last update: {patient.get('updated_at')[0:10]}")
                         index += 1
                         i += 1
-                        if index % 10 == 1:
+                        if i % 10 == 1:
                             inp = input("Apakah pasien yang sesuai ada di list? (Y/n) ")
                             if (not inp) or (inp == "y"):
                                 break
@@ -196,7 +196,7 @@ while True:
 
             index += 1
             i += 1
-            if index % 10 == 1:
+            if i % 10 == 1:
                 page += 1
                 patient_search_url = "https://kinefeet.elgibor-solution.com/api/checkup?page=" + str(page)
                 response = requests.get(patient_search_url, headers=headers).json()
@@ -217,7 +217,9 @@ while True:
         index = 0
         while True:
             patient = data[(i - 1)]
+            print(patient.get("updated_at"))
             if patient.get("updated_at")[0:10] != str(today):
+                print(patient.get("patient_name"))
                 break
             patient_name = patient.get("patient_name")
             result["patient"] = patient_name
@@ -229,7 +231,7 @@ while True:
             df.loc[len(df)] = result
             i += 1
             index += 1
-            if index % 10 == 1:
+            if i % 10 == 1:
                 page += 1
                 patient_search_url = "https://kinefeet.elgibor-solution.com/api/checkup?page=" + str(page)
                 response = requests.get(patient_search_url, headers=headers).json()
@@ -263,7 +265,7 @@ while True:
             df.loc[len(df)] = result
             i += 1
             index += 1
-            if index % 10 == 1:
+            if i % 10 == 1:
                 page += 1
                 patient_search_url = "https://kinefeet.elgibor-solution.com/api/checkup?page=" + str(page)
                 response = requests.get(patient_search_url, headers=headers).json()
@@ -296,7 +298,7 @@ while True:
             df.loc[len(df)] = result
             i += 1
             index += 1
-            if index % 10 == 1:
+            if i % 10 == 1:
                 page += 1
                 patient_search_url = "https://kinefeet.elgibor-solution.com/api/checkup?page=" + str(page)
                 response = requests.get(patient_search_url, headers=headers).json()
@@ -334,7 +336,7 @@ while True:
             df.loc[len(df)] = result
             i += 1
             index += 1
-            if index % 10 == 1:
+            if i % 10 == 1:
                 page += 1
                 patient_search_url = "https://kinefeet.elgibor-solution.com/api/checkup?page=" + str(page)
                 response = requests.get(patient_search_url, headers=headers).json()
@@ -350,7 +352,13 @@ while True:
 
 #process dataframe
 inp = input("Cari outlier dari data? (Y/n) ")
-output_name = input("Masukkan nama dari spreadsheet yang akan dibuat: ")
+output_name = ""
+while True:
+    output_name = input("Masukkan nama dari spreadsheet yang akan dibuat: ")
+    if not output_name:
+        print("Nama file tidak bisa kosong, mohon berikan nama file")
+        continue
+    break
 output = f"data/{output_name}.xlsx"
 
 if not (inp.lower() == "n"):
@@ -363,33 +371,33 @@ if not (inp.lower() == "n"):
         #if i == 4:
         #    break
 
-with pandas.ExcelWriter(output, engine='xlsxwriter') as writer:
-    df.to_excel(writer, sheet_name='Sheet1', index=False)
+    with pandas.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, sheet_name='Sheet1', index=False)
 
-    workbook = writer.book
-    worksheet = writer.sheets['Sheet1']
+        workbook = writer.book
+        worksheet = writer.sheets['Sheet1']
 
-    # Define a format for the outliers
-    format_outlier = workbook.add_format({'bg_color': '#FF6666'})
+        # Define a format for the outliers
+        format_outlier = workbook.add_format({'bg_color': '#FF6666'})
 
-    # Apply conditional formatting for each numeric column
-    for col_num, col in enumerate(df.columns):
-        if '_is_outlier' not in col and col != 'patient':
-            # Calculate the range for this column (skip the header row)
-            col_letter = excel_column_name(col_num)   # Convert column number to Excel column letter (A, B, etc.)
-            data_range = f'{col_letter}2:{col_letter}{len(df) + 1}'  # Start at row 2, ending at the last data row
+        # Apply conditional formatting for each numeric column
+        for col_num, col in enumerate(df.columns):
+            if '_is_outlier' not in col and col != 'patient':
+                # Calculate the range for this column (skip the header row)
+                col_letter = excel_column_name(col_num)   # Convert column number to Excel column letter (A, B, etc.)
+                data_range = f'{col_letter}2:{col_letter}{len(df) + 1}'  # Start at row 2, ending at the last data row
 
-            # Corresponding outlier columns
-            outlier_col_letter = excel_column_name(df.columns.get_loc(f'{col}_is_outlier'))
+                # Corresponding outlier columns
+                outlier_col_letter = excel_column_name(df.columns.get_loc(f'{col}_is_outlier'))
 
-            # Apply conditional formatting for the data range based on the outlier column
-            worksheet.conditional_format(data_range, {
-                'type': 'formula',
-                'criteria': f'=${outlier_col_letter}2=TRUE',
-                'format': format_outlier
-            })
-    for col_num, col in enumerate(df.columns):
-        if '_is_outlier' in col:
-            worksheet.set_column(col_num, col_num, None, None, {'hidden': True})
+                # Apply conditional formatting for the data range based on the outlier column
+                worksheet.conditional_format(data_range, {
+                    'type': 'formula',
+                    'criteria': f'=${outlier_col_letter}2=TRUE',
+                    'format': format_outlier
+                })
+        for col_num, col in enumerate(df.columns):
+            if '_is_outlier' in col:
+                worksheet.set_column(col_num, col_num, None, None, {'hidden': True})
 
 print(f"Data berada dalam file {output}")

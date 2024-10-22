@@ -22,6 +22,15 @@ def find_outliers(column):
     upper_bound = q3 + 1.5 * iqr 
     return (column < lower_bound) | (column > upper_bound)
 
+def excel_column_name(n):
+    """Converts a zero-based column index to an Excel column name (e.g., 0 -> 'A', 26 -> 'AA')."""
+    result = ''
+    while n >= 0:
+        result = chr(n % 26 + 65) + result
+        n = n // 26 - 1
+    return result
+# Export to Excel with conditional formatting
+
 clear_console()
 
 carts = ["patient", "mla_ic", "mla_lr", "mla_mst", "mla_tst", "mla_psw", "mla_he", "mla_isw", "mtp_tst", "mtp_psw", "mtp_he", "mtp_isw", "ai_lr", "ai_mst", "ai_tst", "ca_ic", "ca_lr", "ca_mst", "ca_psw"] 
@@ -354,15 +363,6 @@ if not (inp.lower() == "n"):
         #if i == 4:
         #    break
 
-    def excel_column_name(n):
-        """Converts a zero-based column index to an Excel column name (e.g., 0 -> 'A', 26 -> 'AA')."""
-        result = ''
-        while n >= 0:
-            result = chr(n % 26 + 65) + result
-            n = n // 26 - 1
-        return result
-# Export to Excel with conditional formatting
-
 with pandas.ExcelWriter(output, engine='xlsxwriter') as writer:
     df.to_excel(writer, sheet_name='Sheet1', index=False)
 
@@ -392,4 +392,4 @@ with pandas.ExcelWriter(output, engine='xlsxwriter') as writer:
         if '_is_outlier' in col:
             worksheet.set_column(col_num, col_num, None, None, {'hidden': True})
 
-print("Data berada dalam file {output}")
+print(f"Data berada dalam file {output}")

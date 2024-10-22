@@ -217,9 +217,7 @@ while True:
         index = 0
         while True:
             patient = data[(i - 1)]
-            print(patient.get("updated_at"))
             if patient.get("updated_at")[0:10] != str(today):
-                print(patient.get("patient_name"))
                 break
             patient_name = patient.get("patient_name")
             result["patient"] = patient_name
